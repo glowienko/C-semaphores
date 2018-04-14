@@ -81,7 +81,7 @@ void *consume() {
         printf("consumption end\n\n");
         sem_post(&full);
         sem_post(&mutex);
-        sleep(1);
+//        sleep(1);
     }
 
     pthread_exit(NULL);

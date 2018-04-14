@@ -1,7 +1,8 @@
 # C-semaphores
-Problem of synchroznizations of many threads. Implementation of many producents and consumers using semaphores. Code is written in C.
+Problem of synchronization of many threads. Implementation of many producers and consumers using semaphores. Code is written in C.
+
+
 
 Run in linux terminal: 
 
-gcc -pthread main.c
-./a.out
+gcc -pthread main.c && ./a.out
