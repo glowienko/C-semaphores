@@ -53,6 +53,10 @@ bool can_take_from_buff_1_queue(int queue_type1_buf1_sem_value);
 
 bool can_take_from_buff_2_queue(int queue_type1_buf2_sem_value);
 
+void move_buffer_1();
+
+void move_buffer_2();
+
 int main() {
     pthread_t producer_1, producer_2, producer_3, consumer, consumer_2, two_consumer, two_consumer_2, queue;
     int one = 1, two = 2, three = 3;
@@ -115,10 +119,12 @@ void *check_queue() {
         if (is_type_two_queued(queue_type2_sem_value)) {
             buffer_size_2--;
             buffer_size_1--;
-            printf("*"RED"consumer TYPE 2 FROM QUEUE consumed: %d and %d "RESET" from BUFF 1,2; index: %d and %d \n",
-                   buffer_1[buffer_size_1],
-                   buffer_2[buffer_size_2], buffer_size_1, buffer_size_2);
+            printf("*"RED"consumer TYPE 2 FROM QUEUE consumed: %d and %d "RESET" from BUFF 1,2; buff_size: %d and %d \n",
+                   buffer_1[0],
+                   buffer_2[0], buffer_size_1, buffer_size_2);
 
+            move_buffer_1();
+            move_buffer_2();
             sem_post(&full_1);
             sem_post(&full_2);
             sem_wait(&queue_type2);
@@ -126,18 +132,20 @@ void *check_queue() {
 
         if (!is_type_two_queued(queue_type2_sem_value) && can_take_from_buff_1_queue(queue_type1_buf1_sem_value)) {
             buffer_size_1--;
-            printf("-"RED"consumer FROM QUEUE consumed: %d  "RESET" from "GRN"BUFF 1 "RESET", index: %d \n",
-                   buffer_1[buffer_size_1], buffer_size_1);
+            printf("-"RED"consumer FROM QUEUE consumed: %d  "RESET" from "GRN"BUFF 1 "RESET", buff_size: %d \n",
+                   buffer_1[0], buffer_size_1);
 
+            move_buffer_1();
             sem_post(&full_1);
             sem_wait(&queue_type1_buff_1);
         }
 
         if (!is_type_two_queued(queue_type2_sem_value) && can_take_from_buff_2_queue(queue_type1_buf2_sem_value)) {
             buffer_size_2--;
-            printf("-"RED"consumer FROM QUEUE consumed: %d  "RESET" from "BLU"BUFF 2 "RESET", index: %d \n",
-                   buffer_2[buffer_size_2], buffer_size_2);
+            printf("-"RED"consumer FROM QUEUE consumed: %d  "RESET" from "BLU"BUFF 2 "RESET", buff_size: %d \n",
+                   buffer_2[0], buffer_size_2);
 
+            move_buffer_2();
             sem_post(&full_2);
             sem_wait(&queue_type1_buff_2);
         }
@@ -173,7 +181,7 @@ void *produce(void *id) {
             sem_wait(&mutex_1);
 
             buffer_1[buffer_size_1] = rand() % 10;
-            printf("+producer: %d  produced: %d for "GRN"BUFF 1 "RESET", index: %d \n", ID,
+            printf("+producer: %d  produced: %d for "GRN"BUFF 1 "RESET", buff_size: %d \n", ID,
                    buffer_1[buffer_size_1], buffer_size_1);
             buffer_size_1++;
 
@@ -185,7 +193,7 @@ void *produce(void *id) {
             sem_wait(&mutex_2);
 
             buffer_2[buffer_size_2] = rand() % 10;
-            printf("+producer: %d  produced: %d for "BLU"BUFF 2 "RESET", index: %d \n", ID,
+            printf("+producer: %d  produced: %d for "BLU"BUFF 2 "RESET", buff_size: %d \n", ID,
                    buffer_2[buffer_size_2], buffer_size_2);
             buffer_size_2++;
 
@@ -217,9 +225,9 @@ void *consume(void *id) {
                 printf("-"RED"consumer: %d ADDED TO QUEUE "RESET" of  "GRN"BUFF 1 "RESET" \n", ID);
             } else {
                 buffer_size_1--;
-                printf("-"RED"consumer: %d  consumed: %d "RESET" from "GRN"BUFF 1 "RESET", index: %d \n", ID,
-                       buffer_1[buffer_size_1], buffer_size_1);
-
+                printf("-"RED"consumer: %d  consumed: %d "RESET" from "GRN"BUFF 1 "RESET", buff_size: %d \n", ID,
+                       buffer_1[0], buffer_size_1);
+                move_buffer_1();
                 sem_post(&full_1);
             }
             sem_post(&mutex_1);
@@ -232,8 +240,9 @@ void *consume(void *id) {
                 printf("-"RED"consumer: %d ADDED TO QUEUE "RESET" of  "BLU"BUFF 2 "RESET" \n", ID);
             } else {
                 buffer_size_2--;
-                printf("-"RED"consumer: %d  consumed: %d "RESET" from "BLU"BUFF 2 "RESET", index: %d \n", ID,
-                       buffer_2[buffer_size_2], buffer_size_2);
+                printf("-"RED"consumer: %d  consumed: %d "RESET" from "BLU"BUFF 2 "RESET", buff_size: %d \n", ID,
+                       buffer_2[0], buffer_size_2);
+                move_buffer_2();
                 sem_post(&full_2);
             }
             sem_post(&mutex_2);
@@ -245,6 +254,24 @@ void *consume(void *id) {
     }
 
     pthread_exit(NULL);
+}
+
+void move_buffer_2() {
+    int i;
+    if (buffer_size_2 > 0) {
+        for (i = 0; i < buffer_size_2; i++) {
+            buffer_2[i] = buffer_2[i + 1];
+        }
+    }
+}
+
+void move_buffer_1() {
+    int i;
+    if (buffer_size_1 > 0) {
+        for (i = 0; i < buffer_size_1; i++) {
+            buffer_1[i] = buffer_1[i + 1];
+        }
+    }
 }
 
 void *consume_from_two_buffers(void *id) {
@@ -259,9 +286,10 @@ void *consume_from_two_buffers(void *id) {
         if (buffer_size_1 > 0 && buffer_size_2 > 0) {
             buffer_size_1--;
             buffer_size_2--;
-            printf("-"RED"consumer_type_2, id=%d consumed: %d,%d"RESET" from BUFF 1 & 2, index1: %d, index2: %d \n",
-                   ID, buffer_1[buffer_size_1], buffer_2[buffer_size_2], buffer_size_1, buffer_size_2);
-
+            printf("-"RED"consumer_type_2, id=%d consumed: %d,%d"RESET" from BUFF 1 & 2, buff_size1: %d, buff_size2: %d \n",
+                   ID, buffer_1[0], buffer_2[0], buffer_size_1, buffer_size_2);
+            move_buffer_1();
+            move_buffer_2();
             sem_post(&full_1);
             sem_post(&full_2);
         }
